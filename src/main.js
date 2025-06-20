@@ -65,6 +65,9 @@ const ONEWEB_0012_OMM = {
     "NORAD_CAT_ID": 12345
 };
 
+const earthRadius = 6371000; // meters
+const earthRadiusSquared = earthRadius * earthRadius;
+
 window.onload = async () => {
     const viewer = new Viewer("cesiumContainer");
     viewer.extend(viewerReferenceFrameMixin);
@@ -75,9 +78,6 @@ window.onload = async () => {
 
     const hasLineOfSight = (pos1, pos2) => {
       if (!pos1 || !pos2) return false;
-
-      const earthRadius = 6371000; // meters
-      const earthRadiusSquared = earthRadius * earthRadius;
 
       const direction = Cartesian3.subtract(pos2, pos1, new Cartesian3());
       const originToCenter = Cartesian3.negate(pos1, new Cartesian3());
@@ -99,44 +99,17 @@ window.onload = async () => {
     viewer.entities.add(ISS);
     ISS.showOrbit({ show: true });
 
-    const gpsSats = [];
-
-    for (const omm of gpsOMMs) {
-        const gps = new SpaceEntity({ point: { pixelSize: 6, color: Color.BLUE } }, {});
-        await gps.loadOMM(omm);
-        viewer.entities.add(gps);
-        // gps.showOrbit({ show: true });
-        gpsSats.push(gps);
-
-        // Add dynamic line to ISS if in LOS
-        viewer.entities.add({
-            polyline: {
-            positions: new CallbackProperty(() => {
-                const time = viewer.clock.currentTime;
-                const issPos = ISS.position.getValue(time);
-                const gpsPos = gps.position.getValue(time);
-                if (!issPos || !gpsPos) return null;
-                return hasLineOfSight(issPos, gpsPos) ? [issPos, gpsPos] : null;
-            }, false),
-            width: 1.5,
-            material: Color.YELLOW,
-            arcType: ArcType.NONE
-            }
-        });
-    }
-
-
-
-    // currently copy pasting code for GPS and Galileo satellites but need to refactor this later
-
-    const galileoSats = [];
-
-    for (const omm of galileoOMMs) {
-        const galileo = new SpaceEntity({ point: { pixelSize: 6, color: Color.GREEN } }, {});
-        await galileo.loadOMM(omm);
-        viewer.entities.add(galileo);
+    
+    async function addSatelliteGroup(x_OMM, gnssType, gnssPos, gnssColour, lineColour) {
+      
+      const gnssSats = [];
+      
+      for (const omm of x_OMM) {
+        const gnssType = new SpaceEntity({ point: { pixelSize: 6, color: gnssColour} }, {});
+        await gnssType.loadOMM(omm);
+        viewer.entities.add(gnssType);
         // galileo.showOrbit({ show: true });
-        galileoSats.push(galileo);
+        gnssSats.push(gnssType);
 
         // Add dynamic line to ISS if in LOS
         viewer.entities.add({
@@ -144,43 +117,20 @@ window.onload = async () => {
             positions: new CallbackProperty(() => {
                 const time = viewer.clock.currentTime;
                 const issPos = ISS.position.getValue(time);
-                const galileoPos = galileo.position.getValue(time);
-                if (!issPos || !galileoPos) return null;
-                return hasLineOfSight(issPos, galileoPos) ? [issPos, galileoPos] : null;
+                const gnssPos = gnssType.position.getValue(time);
+                if (!issPos || !gnssPos) return null;
+                return hasLineOfSight(issPos, gnssPos) ? [issPos, gnssPos] : null;
             }, false),
             width: 1.5,
-            material: Color.PURPLE,
+            material: lineColour,
             arcType: ArcType.NONE
             }
         });
+      }
     }
 
-    // GLONASS satellites
-
-    const glonassSats = [];
-
-    for (const omm of glonassOMMs) {
-        const glonass = new SpaceEntity({ point: { pixelSize: 6, color: Color.PEACHPUFF } }, {});
-        await glonass.loadOMM(omm);
-        viewer.entities.add(glonass);
-        // glonass.showOrbit({ show: true });
-        glonassSats.push(glonass);
-
-        // Add dynamic line to ISS if in LOS
-        viewer.entities.add({
-            polyline: {
-            positions: new CallbackProperty(() => {
-                const time = viewer.clock.currentTime;
-                const issPos = ISS.position.getValue(time);
-                const glonassPos = glonass.position.getValue(time);
-                if (!issPos || !glonassPos) return null;
-                return hasLineOfSight(issPos, glonassPos) ? [issPos, glonassPos] : null;
-            }, false),
-            width: 1.5,
-            material: Color.AQUA,
-            arcType: ArcType.NONE
-            }
-        });
-    }
+    const gpsSats = await addSatelliteGroup(gpsOMMs, 'GPS', 'gpsPos', Color.BLUE, Color.YELLOW);
+    const galileoSats = await addSatelliteGroup(galileoOMMs, 'Galileo', 'galileoPos', Color.GREEN, Color.PURPLE);
+    const glonassSats = await addSatelliteGroup(glonassOMMs, 'GLONASS', 'glonassPos', Color.PEACHPUFF, Color.AQUA);
 
   };
