@@ -1,7 +1,9 @@
 import "cesium/Build/Cesium/Widgets/widgets.css";
 import { Ion, CallbackProperty, JulianDate, ArcType, Cartesian3 } from "cesium";
 import * as OrbPro from "orbpro";
-import { gpsOMMs } from "./GPS_sats";
+import { gpsOMMs } from "./GPS_sats.js";
+import { galileoOMMs} from "./Galileo_sats.js";
+import { glonassOMMs } from "./GLONASS_sats.js";
 
 const {
   Viewer,
@@ -122,4 +124,63 @@ window.onload = async () => {
             }
         });
     }
-};
+
+
+
+    // currently copy pasting code for GPS and Galileo satellites but need to refactor this later
+
+    const galileoSats = [];
+
+    for (const omm of galileoOMMs) {
+        const galileo = new SpaceEntity({ point: { pixelSize: 6, color: Color.GREEN } }, {});
+        await galileo.loadOMM(omm);
+        viewer.entities.add(galileo);
+        // galileo.showOrbit({ show: true });
+        galileoSats.push(galileo);
+
+        // Add dynamic line to ISS if in LOS
+        viewer.entities.add({
+            polyline: {
+            positions: new CallbackProperty(() => {
+                const time = viewer.clock.currentTime;
+                const issPos = ISS.position.getValue(time);
+                const galileoPos = galileo.position.getValue(time);
+                if (!issPos || !galileoPos) return null;
+                return hasLineOfSight(issPos, galileoPos) ? [issPos, galileoPos] : null;
+            }, false),
+            width: 1.5,
+            material: Color.PURPLE,
+            arcType: ArcType.NONE
+            }
+        });
+    }
+
+    // GLONASS satellites
+
+    const glonassSats = [];
+
+    for (const omm of glonassOMMs) {
+        const glonass = new SpaceEntity({ point: { pixelSize: 6, color: Color.PEACHPUFF } }, {});
+        await glonass.loadOMM(omm);
+        viewer.entities.add(glonass);
+        // glonass.showOrbit({ show: true });
+        glonassSats.push(glonass);
+
+        // Add dynamic line to ISS if in LOS
+        viewer.entities.add({
+            polyline: {
+            positions: new CallbackProperty(() => {
+                const time = viewer.clock.currentTime;
+                const issPos = ISS.position.getValue(time);
+                const glonassPos = glonass.position.getValue(time);
+                if (!issPos || !glonassPos) return null;
+                return hasLineOfSight(issPos, glonassPos) ? [issPos, glonassPos] : null;
+            }, false),
+            width: 1.5,
+            material: Color.AQUA,
+            arcType: ArcType.NONE
+            }
+        });
+    }
+
+  };
