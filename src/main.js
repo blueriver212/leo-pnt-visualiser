@@ -127,10 +127,25 @@ window.onload = async () => {
             }
         });
       }
+
+      return gnssSats;
+
     }
 
     const gpsSats = await addSatelliteGroup(gpsOMMs, 'GPS', 'gpsPos', Color.BLUE, Color.YELLOW);
     const galileoSats = await addSatelliteGroup(galileoOMMs, 'Galileo', 'galileoPos', Color.GREEN, Color.PURPLE);
     const glonassSats = await addSatelliteGroup(glonassOMMs, 'GLONASS', 'glonassPos', Color.PEACHPUFF, Color.AQUA);
+
+    document.getElementById('toggle-gps').addEventListener('change', (e) => {
+    gpsSats.forEach(sat => sat.show = e.target.checked);
+  });
+
+  document.getElementById('toggle-galileo').addEventListener('change', (e) => {
+    galileoSats.forEach(sat => sat.show = e.target.checked);
+  });
+  
+  document.getElementById('toggle-glonass').addEventListener('change', (e) => {
+    glonassSats.forEach(sat => sat.show = e.target.checked);
+  });
 
   };
