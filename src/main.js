@@ -1,7 +1,9 @@
 import "cesium/Build/Cesium/Widgets/widgets.css";
 import { Ion, CallbackProperty, JulianDate, ArcType, Cartesian3 } from "cesium";
 import * as OrbPro from "orbpro";
-import { gpsOMMs } from "./GPS_sats";
+import { gpsOMMs } from "./GPS_sats.js";
+import { galileoOMMs} from "./Galileo_sats.js";
+import { glonassOMMs } from "./GLONASS_sats.js";
 
 const {
   Viewer,
@@ -63,6 +65,9 @@ const ONEWEB_0012_OMM = {
     "NORAD_CAT_ID": 12345
 };
 
+const earthRadius = 6371000; // meters
+const earthRadiusSquared = earthRadius * earthRadius;
+
 window.onload = async () => {
     const viewer = new Viewer("cesiumContainer");
     viewer.extend(viewerReferenceFrameMixin);
@@ -73,19 +78,12 @@ window.onload = async () => {
 
     const hasLineOfSight = (pos1, pos2) => {
       if (!pos1 || !pos2) return false;
-
-      const earthRadius = 6371000; // meters
-      const earthRadiusSquared = earthRadius * earthRadius;
-
       const direction = Cartesian3.subtract(pos2, pos1, new Cartesian3());
       const originToCenter = Cartesian3.negate(pos1, new Cartesian3());
-
       const a = Cartesian3.dot(direction, direction);
       const b = 2.0 * Cartesian3.dot(direction, originToCenter);
       const c = Cartesian3.dot(originToCenter, originToCenter) - earthRadiusSquared;
-
       const discriminant = b * b - 4 * a * c;
-
       // If the line intersects the Earth (discriminant > 0), then there's no line of sight
       return discriminant <= 0;
     };
@@ -97,29 +95,95 @@ window.onload = async () => {
     viewer.entities.add(ISS);
     ISS.showOrbit({ show: true });
 
-    const gpsSats = [];
+    
+    async function addSatelliteGroup(x_OMM, gnssType, gnssColour) {
+      const gnssSats = [];
+      
+      for (const omm of x_OMM) {
+        const gnssType = new SpaceEntity({ point: { pixelSize: 6, color: gnssColour} }, {});
+        await gnssType.loadOMM(omm);
+        viewer.entities.add(gnssType);
+        // gnssSats.push({ sat: gnssType, line: lineEntity });
+        gnssSats.push(gnssType);
+      }
+      return gnssSats;
+    }
 
-    for (const omm of gpsOMMs) {
-        const gps = new SpaceEntity({ point: { pixelSize: 6, color: Color.BLUE } }, {});
-        await gps.loadOMM(omm);
-        viewer.entities.add(gps);
-        // gps.showOrbit({ show: true });
-        gpsSats.push(gps);
-
-        // Add dynamic line to ISS if in LOS
-        viewer.entities.add({
+    function createGnssLines(gnssSats, gnssPos, lineColour) {
+      return gnssSats.map((satEntity) => {
+        const lineEntity = viewer.entities.add({
             polyline: {
             positions: new CallbackProperty(() => {
                 const time = viewer.clock.currentTime;
                 const issPos = ISS.position.getValue(time);
-                const gpsPos = gps.position.getValue(time);
-                if (!issPos || !gpsPos) return null;
-                return hasLineOfSight(issPos, gpsPos) ? [issPos, gpsPos] : null;
+                const gnssPos = satEntity.position.getValue(time);
+                if (!issPos || !gnssPos) return null;
+                return hasLineOfSight(issPos, gnssPos) ? [issPos, gnssPos] : null;
             }, false),
             width: 1.5,
-            material: Color.YELLOW,
+            material: lineColour,
             arcType: ArcType.NONE
             }
         });
+        return { sat: satEntity, line: lineEntity };
+      });
     }
-};
+
+
+    const gpsSatsEntity = await addSatelliteGroup(gpsOMMs, 'GPS', Color.BLUE);
+    const gpsSats = createGnssLines(gpsSatsEntity, 'gpsPos', Color.YELLOW);
+
+    const galileoSatsEntity = await addSatelliteGroup(galileoOMMs, 'Galileo', Color.GREEN);
+    const galileoSats = createGnssLines(galileoSatsEntity, 'galileoPos', Color.PURPLE);
+
+    const glonassSatsEntity = await addSatelliteGroup(glonassOMMs, 'GLONASS', Color.PEACHPUFF);
+    const glonassSats = createGnssLines(glonassSatsEntity, 'glonassPos', Color.AQUA);
+    
+    // console.log("gpsOMMs.length", gpsOMMs.length);
+    // console.log("gpsSats.length", gpsSats.length);
+    // console.log("galileoOMMs.length", galileoOMMs.length);
+    // console.log("galileoSats.length", galileoSats.length);
+    // console.log("glonassOMMs.length", glonassOMMs.length);
+    // console.log("glonassSats.length", glonassSats.length);
+
+    gpsSats.forEach((obj, i) => {
+    console.log(`GPS #${i}: sat id=${obj.sat.id}, line id=${obj.line.id}`);
+  });
+
+  document.getElementById('toggle-gps').addEventListener('change', (e) => {
+    gpsSats.forEach(obj => {
+      if (obj.sat && typeof obj.sat.show !== "undefined") obj.sat.show = e.target.checked;
+      if (obj.line && obj.line.polyline) obj.line.polyline.show = e.target.checked;
+    });
+  });
+
+  document.getElementById('toggle-galileo').addEventListener('change', (e) => {
+    galileoSats.forEach(obj => {
+      if (obj.sat && typeof obj.sat.show !== "undefined") obj.sat.show = e.target.checked;
+      if (obj.line && obj.line.polyline) obj.line.polyline.show = e.target.checked;
+    });
+  });
+
+  document.getElementById('toggle-glonass').addEventListener('change', (e) => {
+    glonassSats.forEach(obj => {
+      if (obj.sat && typeof obj.sat.show !== "undefined") obj.sat.show = e.target.checked;
+      if (obj.line && obj.line.polyline) obj.line.polyline.show = e.target.checked;
+    });
+  });
+
+    //   console.log("GPS Satellites and Lines:");
+    // gpsSats.forEach((obj, i) => {
+    //   console.log(`GPS #${i}:`, { sat: obj.sat, line: obj.line });
+    // });
+
+    // console.log("Galileo Satellites and Lines:");
+    // galileoSats.forEach((obj, i) => {
+    //   console.log(`Galileo #${i}:`, { sat: obj.sat, line: obj.line });
+    // });
+
+    // console.log("GLONASS Satellites and Lines:");
+    // glonassSats.forEach((obj, i) => {
+    //   console.log(`GLONASS #${i}:`, { sat: obj.sat, line: obj.line });
+    // });
+
+  };

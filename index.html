@@ -10,11 +10,37 @@
       width: 100%;
       height: 100%;
       overflow: hidden;
+      font-family: sans-serif;
+    }
+
+    #satellite-controls {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      background:rgba(42, 42, 42, 0.85);
+      color: white;
+      padding: 10px;
+      border-radius: 5px;
+      font-size: 14px;
+      z-index: 1000;
+    }
+
+    #satellite-controls label {
+      display: block;
+      margin-bottom: 5px;
+      cursor: pointer;
     }
   </style>
 </head>
 <body>
   <div id="cesiumContainer"></div>
+
+  <div id="satellite-controls">
+    <label><input type="checkbox" id="toggle-gps" checked> GPS</label>
+    <label><input type="checkbox" id="toggle-galileo" checked> Galileo</label>
+    <label><input type="checkbox" id="toggle-glonass" checked> GLONASS</label>
+  </div>
+
   <script type="module" src="/src/main.js"></script>
 </body>
 </html>
