@@ -15,7 +15,7 @@ const {
 
 Ion.defaultAccessToken = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiJkMWRkODI0Mi03MzIzLTQyNmUtYmI3OC0xNmMyMzgwZTNjMDMiLCJpZCI6NTcwMTcsImlhdCI6MTYyMTk2ODMyMn0.kq72xmk-d79pgx_P4e_mfYLzZ9DOC5pfVF5DrG7TMSg";
 
-const ISS_OMM = {
+const OneWeb_Satellite = {
   "OBJECT_NAME": "ISS (ZARYA)",
   "OBJECT_ID": "1998-067A",
   "EPOCH": "2024-05-23T08:20:49.756704",
@@ -31,40 +31,6 @@ const ISS_OMM = {
   "NORAD_CAT_ID": 25544
 };
 
-// Create a new const for a gnss satellite
-const GPS_PRN10_OMM = {
-    "OBJECT_NAME": "GPS BIIRM-3 (PRN 10)",
-    "OBJECT_ID": "2007-047A",
-    "EPOCH": "2024-05-23T00:00:00.000000",
-    "MEAN_MOTION": 2.00567897,
-    "ECCENTRICITY": 0.0106,
-    "INCLINATION": 55.1,
-    "RA_OF_ASC_NODE": 75.1,
-    "ARG_OF_PERICENTER": 90.0,
-    "MEAN_ANOMALY": 0.0,
-    "BSTAR": 0.0001,
-    "MEAN_MOTION_DOT": 0,
-    "MEAN_MOTION_DDOT": 0,
-    "NORAD_CAT_ID": 32260
-};
-
-// Update the OBJECT_NAME of ONEWEB_0012_OMM
-const ONEWEB_0012_OMM = {
-    "OBJECT_NAME": "TEST",
-    "OBJECT_ID": "2020-0012",
-    "EPOCH": "2024-05-23T00:00:00.000000",
-    "MEAN_MOTION": 15.0,
-    "ECCENTRICITY": 0.001,
-    "INCLINATION": 45.0,
-    "RA_OF_ASC_NODE": 100.0,
-    "ARG_OF_PERICENTER": 180.0,
-    "MEAN_ANOMALY": 0.0,
-    "BSTAR": 0.0001,
-    "MEAN_MOTION_DOT": 0,
-    "MEAN_MOTION_DDOT": 0,
-    "NORAD_CAT_ID": 12345
-};
-
 const earthRadius = 6371000; // meters
 const earthRadiusSquared = earthRadius * earthRadius;
 
@@ -73,7 +39,7 @@ window.onload = async () => {
     viewer.extend(viewerReferenceFrameMixin);
     viewer.referenceFrame = 1;
 
-    viewer.clock.currentTime = OrbPro.JulianDate.fromIso8601(ISS_OMM.EPOCH);
+    viewer.clock.currentTime = OrbPro.JulianDate.fromIso8601(OneWeb_Satellite.EPOCH);
     viewer.clock.shouldAnimate = true;
 
     const hasLineOfSight = (pos1, pos2) => {
@@ -91,85 +57,112 @@ window.onload = async () => {
     const ISS = new SpaceEntity({
       point: { pixelSize: 10, color: Color.RED }
     }, {});
-    await ISS.loadOMM(ISS_OMM);
+    await ISS.loadOMM(OneWeb_Satellite);
     viewer.entities.add(ISS);
     ISS.showOrbit({ show: true });
 
     
-    async function addSatelliteGroup(x_OMM, gnssType, gnssColour) {
-      const gnssSats = [];
-      
-      for (const omm of x_OMM) {
-        const gnssType = new SpaceEntity({ point: { pixelSize: 6, color: gnssColour} }, {});
-        await gnssType.loadOMM(omm);
-        viewer.entities.add(gnssType);
-        // gnssSats.push({ sat: gnssType, line: lineEntity });
-        gnssSats.push(gnssType);
-      }
-      return gnssSats;
-    }
+    async function addSatelliteGroup(ommArray, gnssType, gnssColour) {
+      const sats = [];
 
-    function createGnssLines(gnssSats, gnssPos, lineColour) {
-      return gnssSats.map((satEntity) => {
+        for (const omm of ommArray) {
+          const satEntity = new SpaceEntity(
+            { point: { pixelSize: 6, color: gnssColour } },
+            {}
+          );
+          await satEntity.loadOMM(omm);
+          viewer.entities.add(satEntity);
+
+          sats.push({
+            entity: satEntity,
+            name: omm.OBJECT_NAME
+          });
+        }
+
+        return sats;
+      }
+
+    function createGnssLines(satDataArray, lineColour) {
+      return satDataArray.map(({ entity: satEntity }) => {
         const lineEntity = viewer.entities.add({
-            polyline: {
+          polyline: {
             positions: new CallbackProperty(() => {
-                const time = viewer.clock.currentTime;
-                const issPos = ISS.position.getValue(time);
-                const gnssPos = satEntity.position.getValue(time);
-                if (!issPos || !gnssPos) return null;
-                return hasLineOfSight(issPos, gnssPos) ? [issPos, gnssPos] : null;
+              const time   = viewer.clock.currentTime;
+              const issPos = ISS.position.getValue(time);
+              const satPos = satEntity.position.getValue(time);
+              if (!issPos || !satPos) return null;
+              return hasLineOfSight(issPos, satPos)
+                ? [issPos, satPos]
+                : null;
             }, false),
-            width: 1.5,
+            width:    1.5,
             material: lineColour,
-            arcType: ArcType.NONE
-            }
+            arcType:  ArcType.NONE
+          }
         });
         return { sat: satEntity, line: lineEntity };
       });
     }
 
+    const gpsSatsData     = await addSatelliteGroup(gpsOMMs,     'GPS',     Color.BLUE);
+    const galileoSatsData = await addSatelliteGroup(galileoOMMs, 'Galileo', Color.GREEN);
+    const glonassSatsData = await addSatelliteGroup(glonassOMMs, 'GLONASS',Color.PEACHPUFF);
 
-    const gpsSatsEntity = await addSatelliteGroup(gpsOMMs, 'GPS', Color.BLUE);
-    const gpsSats = createGnssLines(gpsSatsEntity, 'gpsPos', Color.YELLOW);
+    const gpsSatsLines     = createGnssLines(gpsSatsData,     Color.YELLOW);
+    const galileoSatsLines = createGnssLines(galileoSatsData, Color.PURPLE);
+    const glonassSatsLines = createGnssLines(glonassSatsData, Color.AQUA);
 
-    const galileoSatsEntity = await addSatelliteGroup(galileoOMMs, 'Galileo', Color.GREEN);
-    const galileoSats = createGnssLines(galileoSatsEntity, 'galileoPos', Color.PURPLE);
+    const allGnssSats = [
+      ...gpsSatsData,
+      ...galileoSatsData,
+      ...glonassSatsData
+    ];
 
-    const glonassSatsEntity = await addSatelliteGroup(glonassOMMs, 'GLONASS', Color.PEACHPUFF);
-    const glonassSats = createGnssLines(glonassSatsEntity, 'glonassPos', Color.AQUA);
-    
-    // console.log("gpsOMMs.length", gpsOMMs.length);
-    // console.log("gpsSats.length", gpsSats.length);
-    // console.log("galileoOMMs.length", galileoOMMs.length);
-    // console.log("galileoSats.length", galileoSats.length);
-    // console.log("glonassOMMs.length", glonassOMMs.length);
-    // console.log("glonassSats.length", glonassSats.length);
 
-    gpsSats.forEach((obj, i) => {
-    console.log(`GPS #${i}: sat id=${obj.sat.id}, line id=${obj.line.id}`);
+  // grab the <tbody> once
+  const tbody = document.getElementById('visibilityTable').querySelector('tbody');
+
+  // on each clock tick, rebuild the list of visible sats
+  viewer.clock.onTick.addEventListener((clock) => {
+    const time   = clock.currentTime;
+    const issPos = ISS.position.getValue(time);
+    if (!issPos) return;
+
+    // figure out which sats are in LOS
+    const visibleNames = allGnssSats
+      .filter(({ entity }) => {
+        const satPos = entity.position.getValue(time);
+        return satPos && hasLineOfSight(issPos, satPos);
+      })
+      .map(({ name }) => name);
+
+    // clear & repopulate the table
+    tbody.innerHTML = '';
+    for (const name of visibleNames) {
+      const row  = document.createElement('tr');
+      const cell = document.createElement('td');
+      cell.textContent = name;
+      row.appendChild(cell);
+      tbody.appendChild(row);
+    }
   });
 
   document.getElementById('toggle-gps').addEventListener('change', (e) => {
-    gpsSats.forEach(obj => {
-      if (obj.sat && typeof obj.sat.show !== "undefined") obj.sat.show = e.target.checked;
-      if (obj.line && obj.line.polyline) obj.line.polyline.show = e.target.checked;
-    });
+    gpsSatsData.forEach(({ entity }) => entity.show = e.target.checked);
+    gpsSatsLines.forEach(({ line })   => line.polyline.show = e.target.checked);
   });
 
   document.getElementById('toggle-galileo').addEventListener('change', (e) => {
-    galileoSats.forEach(obj => {
-      if (obj.sat && typeof obj.sat.show !== "undefined") obj.sat.show = e.target.checked;
-      if (obj.line && obj.line.polyline) obj.line.polyline.show = e.target.checked;
-    });
+      galileoSatsData.forEach(({ entity }) => entity.show = e.target.checked);
+      galileoSatsLines.forEach(({ line }) => line.polyline.show = e.target.checked);
   });
 
   document.getElementById('toggle-glonass').addEventListener('change', (e) => {
-    glonassSats.forEach(obj => {
-      if (obj.sat && typeof obj.sat.show !== "undefined") obj.sat.show = e.target.checked;
-      if (obj.line && obj.line.polyline) obj.line.polyline.show = e.target.checked;
-    });
+      glonassSatsData.forEach(({ entity }) => entity.show = e.target.checked);
+      glonassSatsLines.forEach(({ line }) => line.polyline.show = e.target.checked);
   });
+
+  
 
     //   console.log("GPS Satellites and Lines:");
     // gpsSats.forEach((obj, i) => {

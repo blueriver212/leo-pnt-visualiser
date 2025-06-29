@@ -15,8 +15,8 @@
 
     #satellite-controls {
       position: absolute;
-      top: 10px;
-      left: 10px;
+      top: 50%;
+      right: 10px;
       background:rgba(42, 42, 42, 0.85);
       color: white;
       padding: 10px;
@@ -30,9 +30,51 @@
       margin-bottom: 5px;
       cursor: pointer;
     }
+
+    #sidebar {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    width: 200px;
+    max-height: 300px;
+    overflow-y: auto;
+    background: rgba(0,0,0,0.6);
+    color: #fff;
+    padding: 10px;
+    font-family: sans-serif;
+    font-size: 14px;
+    border-radius: 4px;
+    z-index: 1;
+  }
+  #sidebar h3 {
+    margin: 0 0 8px;
+    font-size: 16px;
+  }
+  #visibilityTable {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  #visibilityTable th,
+  #visibilityTable td {
+    text-align: left;
+    padding: 4px;
+  }
+  #visibilityTable tr:nth-child(even) {
+    background: rgba(255,255,255,0.1);
+  }
   </style>
 </head>
 <body>
+  <div id="sidebar">
+    <h3>Visible Satellites</h3>
+    <table id="visibilityTable">
+      <thead>
+        <tr><th>Name</th></tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
   <div id="cesiumContainer"></div>
 
   <div id="satellite-controls">
@@ -40,6 +82,8 @@
     <label><input type="checkbox" id="toggle-galileo" checked> Galileo</label>
     <label><input type="checkbox" id="toggle-glonass" checked> GLONASS</label>
   </div>
+
+
 
   <script type="module" src="/src/main.js"></script>
 </body>
