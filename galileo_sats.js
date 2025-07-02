@@ -1,4 +1,4 @@
-export const galileoOMMs = [
+export const gpsOMMs = [
 {
     OBJECT_NAME: "GSAT0101 (GALILEO-PFM)",
     OBJECT_ID: "11060A",
